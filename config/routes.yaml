@@ -1,0 +1,13 @@
+# Routes are examples for the routing exercise. Topics must be provisioned
+# outside the gateway; this file never causes topic creation.
+routes:
+  - event_type: user.created
+    topic: platform.users.v1
+    encoding: protobuf
+    schema: user_event_v1
+    key_field: payload.user_id
+  - event_type: order.placed
+    topic: platform.orders.v1
+    encoding: avro
+    schema: order_event_v1
+    key_field: payload.order_id
