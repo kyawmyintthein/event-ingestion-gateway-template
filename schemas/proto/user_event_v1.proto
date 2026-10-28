@@ -1,0 +1,20 @@
+syntax = "proto3";
+
+package platform.events.v1;
+
+option go_package = "github.com/kyawmyintthein/event-ingestion-gateway/gen/proto;eventsv1";
+
+// UserCreatedEvent is the wire representation for user.created events.
+// The envelope fields remain in the record so event metadata is not lost.
+message UserCreatedEvent {
+  string event_id = 1;
+  string event_type = 2;
+  // RFC3339 timestamp as received by the HTTP gateway.
+  string timestamp = 3;
+  UserCreatedPayload payload = 4;
+}
+
+message UserCreatedPayload {
+  string user_id = 1;
+  string source = 2;
+}

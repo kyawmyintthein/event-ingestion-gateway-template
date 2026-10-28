@@ -1,0 +1,24 @@
+{
+  "type": "record",
+  "name": "OrderPlacedEvent",
+  "namespace": "platform.events.v1",
+  "doc": "Wire schema for order.placed events. Envelope metadata is retained.",
+  "fields": [
+    { "name": "event_id", "type": "string" },
+    { "name": "event_type", "type": "string" },
+    { "name": "timestamp", "type": "string", "doc": "RFC3339 timestamp." },
+    {
+      "name": "payload",
+      "type": {
+        "type": "record",
+        "name": "OrderPlacedPayload",
+        "fields": [
+          { "name": "order_id", "type": "string" },
+          { "name": "user_id", "type": "string" },
+          { "name": "total_amount", "type": "double" },
+          { "name": "currency", "type": "string" }
+        ]
+      }
+    }
+  ]
+}
