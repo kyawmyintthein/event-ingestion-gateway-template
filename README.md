@@ -37,8 +37,6 @@ Integration tests do not use Compose or a developer's local broker. They provisi
 
 Read [docs/architecture.md](docs/architecture.md), [docs/api.md](docs/api.md), and [docs/failure-semantics.md](docs/failure-semantics.md) before implementing behavior. In particular, “atomic” is preflight-before-publish, not a Kafka transaction. Async `202 Accepted` means only that an event entered a bounded in-memory queue; a process crash can lose queued events. Retries can create duplicates.
 
-The optional consumer handler is an advanced extension and is kept separate from the required HTTP-to-Kafka path. It should acknowledge/commit only after successful handling and must account for redelivery.
-
 ## Useful commands
 
 | Command | Purpose |

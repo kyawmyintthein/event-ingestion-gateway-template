@@ -1,25 +1,38 @@
-# Failure and delivery semantics
+# HTTP API
 
-## Atomic batches are not Kafka transactions
+## `POST /v1/events`
 
-Atomic mode must validate, resolve routes, extract keys, look up schemas, and encode every event before the first write. A preflight failure means zero writes. After publishing begins, a broker/network failure can occur after some records were delivered. This mode therefore provides all-or-none preflight, not all-or-nothing delivery. Do not describe it as a Kafka transaction.
+The request body is a top-level JSON array of event envelopes:
 
-## Async acceptance is volatile
+```json
+[
+  {
+    "event_id": "7bb72b30-a81e-4e7d-9eaf-b9a19ef8c512",
+    "event_type": "user.created",
+    "timestamp": "2026-10-28T09:00:00Z",
+    "payload": {"user_id": "u-123", "source": "signup"}
+  }
+]
+```
 
-Async mode returns `202 Accepted` after placing events in a bounded in-memory queue. Acceptance is not publication or durable persistence. Events still queued when the process crashes can be lost. A full queue must return the documented overload response (the template chooses `503 Service Unavailable`) and must not silently drop the event. Graceful shutdown should stop admission, drain up to a configured deadline, and report remaining failures.
+`event_id` and `event_type` must be nonempty, `timestamp` must be RFC3339, and `payload` must be a JSON object. UUID validation is an exercise. Empty arrays, malformed JSON, trailing content, too many events, or oversized bodies are rejected. Limits are configured server-side.
 
-## Retries and duplicates
+The route and schema configuration determine the destination and encoding. Request fields do not select arbitrary topics or encodings.
 
-Retries can publish a record even when the producer did not receive confirmation that an earlier attempt succeeded. Delivery is therefore at least once under retry scenarios, and duplicate events are possible. `event_id` can support downstream deduplication, but the gateway does not guarantee deduplication. Retry only classified transient errors, cap attempts, use bounded exponential backoff with jitter, and honor context cancellation.
+### Response behavior to implement
 
-## Ordering
+- Sync success: `200`, with `accepted`, `published`, `failed`, and per-index `results`.
+- Async queue admission: `202`, with `accepted`, `queued`, and per-index `results`; do not claim the records were published.
+- Invalid atomic batch: `400` or `422`, with validation errors and no writes.
+- Partial mode: `200` if all publish, `207` for mixed outcomes, `400`/`422` if all are invalid. `207` is nonstandard and clients may need explicit support.
+- Infrastructure errors: `503` or `504` as appropriate.
 
-Kafka preserves order within a partition. A stable entity key helps route related events to the same partition, but ordering is not guaranteed across partitions, across different keys, or when application-level workers reorder writes. Changing a topic's partition count can also change key-to-partition assignment.
+Each result reports the original input index, event ID when available, status, and a safe error code. Never return raw broker errors.
 
-## Consumer redelivery
+Batch and delivery modes are server-side configuration. Atomic mode means preflight every event before writing, not transactional Kafka delivery. See [failure-semantics.md](failure-semantics.md).
 
-The optional consumer extension should commit an offset only after successful handling. If handling succeeds but committing fails, a message may be handled again. Handlers should be idempotent or use a deduplication strategy appropriate to the downstream side effect. Poison-message handling and dead-letter topics are future extensions, not silent discard paths.
+## Health endpoints
 
-## Broker and schema errors
-
-Map internal failures to safe API codes; never return raw broker details. Missing topics and unavailable brokers must produce observable failures, not implicit topic creation or a JSON encoding fallback. Schema identity and version travel in headers under this local convention; it is not Schema Registry wire framing. Schema evolution should preserve compatibility for existing readers and be reviewed before changing a published schema.
+- `GET /healthz`: process liveness.
+- `GET /readyz`: readiness. Kafka reachability is a later exercise; the initial endpoint may report application readiness without probing Kafka.
+- `GET /metrics`: optional advanced exercise.

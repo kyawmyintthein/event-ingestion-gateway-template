@@ -36,7 +36,3 @@ Batch and delivery modes are server-side configuration. Atomic mode means prefli
 - `GET /healthz`: process liveness.
 - `GET /readyz`: readiness. Kafka reachability is a later exercise; the initial endpoint may report application readiness without probing Kafka.
 - `GET /metrics`: optional advanced exercise.
-
-## Optional consumer
-
-The optional advanced Kafka consumer is not part of this HTTP API. It has no gRPC endpoint or server.

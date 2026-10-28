@@ -2,12 +2,10 @@ package config
 
 import (
 	"errors"
-	"os"
-	"strconv"
 	"strings"
 
 	"github.com/kyawmyintthein/event-ingestion-gateway/internal/domain"
-	"gopkg.in/yaml.v3"
+	"github.com/spf13/viper"
 )
 
 type Config struct {
@@ -24,23 +22,23 @@ type Config struct {
 	ShutdownTimeoutSeconds int
 }
 
-type routeFile struct {
-	Routes []domain.Route `yaml:"routes"`
-}
-
 func Load() (Config, error) {
+	v, err := newViper()
+	if err != nil {
+		return Config{}, err
+	}
 	cfg := Config{
-		HTTPAddress:            env("HTTP_ADDRESS", ":8080"),
-		Brokers:                splitBrokers(env("KAFKA_BROKERS", "localhost:9092")),
-		RoutesFile:             env("ROUTES_FILE", "config/routes.yaml"),
-		MaxBodyBytes:           envInt64("MAX_BODY_BYTES", 1048576),
-		MaxEvents:              envInt("MAX_EVENTS", 100),
-		BatchMode:              env("BATCH_MODE", "atomic"),
-		DeliveryMode:           env("DELIVERY_MODE", "sync"),
-		WriteTimeoutSeconds:    envInt("KAFKA_WRITE_TIMEOUT_SECONDS", 10),
-		AsyncQueueSize:         envInt("ASYNC_QUEUE_SIZE", 1000),
-		AsyncWorkers:           envInt("ASYNC_WORKERS", 4),
-		ShutdownTimeoutSeconds: envInt("SHUTDOWN_TIMEOUT_SECONDS", 10),
+		HTTPAddress:            v.GetString("http.address"),
+		Brokers:                splitBrokers(v.GetString("kafka.brokers")),
+		RoutesFile:             v.GetString("routes.file"),
+		MaxBodyBytes:           v.GetInt64("request.max_body_bytes"),
+		MaxEvents:              v.GetInt("request.max_events"),
+		BatchMode:              v.GetString("ingestion.batch_mode"),
+		DeliveryMode:           v.GetString("ingestion.delivery_mode"),
+		WriteTimeoutSeconds:    v.GetInt("kafka.write_timeout_seconds"),
+		AsyncQueueSize:         v.GetInt("async.queue_size"),
+		AsyncWorkers:           v.GetInt("async.workers"),
+		ShutdownTimeoutSeconds: v.GetInt("shutdown.timeout_seconds"),
 	}
 	if len(cfg.Brokers) == 0 {
 		return Config{}, errors.New("at least one Kafka broker is required")
@@ -52,15 +50,52 @@ func Load() (Config, error) {
 }
 
 func LoadRoutes(path string) ([]domain.Route, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
+	v := viper.New()
+	v.SetConfigFile(path)
+	v.SetConfigType("yaml")
+	if err := v.ReadInConfig(); err != nil {
 		return nil, err
 	}
-	var file routeFile
-	if err := yaml.Unmarshal(data, &file); err != nil {
+	var routes []domain.Route
+	if err := v.UnmarshalKey("routes", &routes); err != nil {
 		return nil, err
 	}
-	return file.Routes, nil
+	return routes, nil
+}
+
+func newViper() (*viper.Viper, error) {
+	v := viper.New()
+	v.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	v.AutomaticEnv()
+	for key, envName := range map[string]string{
+		"http.address":                "HTTP_ADDRESS",
+		"kafka.brokers":               "KAFKA_BROKERS",
+		"kafka.write_timeout_seconds": "KAFKA_WRITE_TIMEOUT_SECONDS",
+		"routes.file":                 "ROUTES_FILE",
+		"request.max_body_bytes":      "MAX_BODY_BYTES",
+		"request.max_events":          "MAX_EVENTS",
+		"ingestion.batch_mode":        "BATCH_MODE",
+		"ingestion.delivery_mode":     "DELIVERY_MODE",
+		"async.queue_size":            "ASYNC_QUEUE_SIZE",
+		"async.workers":               "ASYNC_WORKERS",
+		"shutdown.timeout_seconds":    "SHUTDOWN_TIMEOUT_SECONDS",
+	} {
+		if err := v.BindEnv(key, envName); err != nil {
+			return nil, err
+		}
+	}
+	v.SetDefault("http.address", ":8080")
+	v.SetDefault("kafka.brokers", "localhost:9092")
+	v.SetDefault("kafka.write_timeout_seconds", 10)
+	v.SetDefault("routes.file", "config/routes.yaml")
+	v.SetDefault("request.max_body_bytes", 1048576)
+	v.SetDefault("request.max_events", 100)
+	v.SetDefault("ingestion.batch_mode", "atomic")
+	v.SetDefault("ingestion.delivery_mode", "sync")
+	v.SetDefault("async.queue_size", 1000)
+	v.SetDefault("async.workers", 4)
+	v.SetDefault("shutdown.timeout_seconds", 10)
+	return v, nil
 }
 
 func splitBrokers(raw string) []string {
@@ -71,25 +106,4 @@ func splitBrokers(raw string) []string {
 		}
 	}
 	return brokers
-}
-
-func env(key, fallback string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return fallback
-}
-func envInt(key string, fallback int) int {
-	v, err := strconv.Atoi(os.Getenv(key))
-	if err != nil || v < 1 {
-		return fallback
-	}
-	return v
-}
-func envInt64(key string, fallback int64) int64 {
-	v, err := strconv.ParseInt(os.Getenv(key), 10, 64)
-	if err != nil || v < 1 {
-		return fallback
-	}
-	return v
 }
