@@ -1,6 +1,6 @@
 # Event Ingestion Gateway
 
-A beginner-to-advanced Go learning template for accepting JSON event batches over HTTP and publishing schema-encoded records to Kafka. The source intentionally contains `TODO(student)` exercises and `ErrNotImplemented` placeholders; it is scaffolding, not a finished gateway. Do not expect ingestion requests to succeed until the exercises are completed.
+A beginner-to-advanced Go learning template for accepting JSON event batches over HTTP and publishing schema-encoded records to Kafka. The source intentionally contains `TODO(student)` exercises and `ErrNotImplemented` placeholders; it is scaffolding, not a finished gateway. The TODO markers and guides in `docs/` describe unfinished behavior; ingestion requests return HTTP 501 until the handler is implemented.
 
 ## Prerequisites
 
@@ -22,20 +22,20 @@ Kafka listens at `localhost:9092` for the host-run app and `kafka:19092` for cli
 
 The server exposes `GET /healthz` for liveness and `GET /readyz` for readiness. `POST /v1/events` remains HTTP 501 while its exercise is unimplemented. See [docs/api.md](docs/api.md).
 
-## Learn in levels
+## Tests
 
-Work through [exercises/01-http.md](exercises/01-http.md) to [exercises/06-reliability.md](exercises/06-reliability.md). The test suite includes checks for unfinished behavior. Unit tests should run without Kafka; integration tests use a fresh Kafka container and require Docker:
+The test suite includes checks for unfinished behavior. Unit tests should run without Kafka; integration tests use a fresh Kafka container and require Docker:
 
 ```sh
 make test
 make test-integration
 ```
 
-Integration tests do not use Compose or a developer's local broker. They provision isolated test topics and clean up their containers. `go test ./...` is the fast compile/unit-test path; some exercise-specific tests are expected to fail until implemented.
+Integration tests do not use Compose or a developer's local broker. They provision isolated test topics and clean up their containers. `go test ./...` is the fast compile/unit-test path; checks for unfinished behavior are expected to fail until those paths are implemented.
 
 ## Architecture and delivery semantics
 
-Read [docs/architecture.md](docs/architecture.md), [docs/failure-semantics.md](docs/failure-semantics.md), and the progressive exercises before implementing behavior. In particular, “atomic” is preflight-before-publish, not a Kafka transaction. Async `202 Accepted` means only that an event entered a bounded in-memory queue; a process crash can lose queued events. Retries can create duplicates.
+Read [docs/architecture.md](docs/architecture.md), [docs/api.md](docs/api.md), and [docs/failure-semantics.md](docs/failure-semantics.md) before implementing behavior. In particular, “atomic” is preflight-before-publish, not a Kafka transaction. Async `202 Accepted` means only that an event entered a bounded in-memory queue; a process crash can lose queued events. Retries can create duplicates.
 
 The optional consumer handler is an advanced extension and is kept separate from the required HTTP-to-Kafka path. It should acknowledge/commit only after successful handling and must account for redelivery.
 

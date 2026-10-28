@@ -18,7 +18,7 @@ Kafka preserves order within a partition. A stable entity key helps route relate
 
 ## Consumer redelivery
 
-The optional consumer extension should commit an offset only after successful handling. If handling succeeds but committing fails, a message may be handled again. Handlers should be idempotent or use a deduplication strategy appropriate to the downstream side effect. Poison-message handling and dead-letter topics are deliberate future exercises, not silent discard paths.
+The optional consumer extension should commit an offset only after successful handling. If handling succeeds but committing fails, a message may be handled again. Handlers should be idempotent or use a deduplication strategy appropriate to the downstream side effect. Poison-message handling and dead-letter topics are future extensions, not silent discard paths.
 
 ## Broker and schema errors
 
